@@ -7,9 +7,12 @@ import streamlit as st
 import pandas as pd
 import requests
 import warnings
+from pathlib import Path
 
 # 忽略憑證警告
 warnings.filterwarnings('ignore')
+
+MAP_IMAGE_PATH = Path(__file__).parent / "清大博覽會地圖.jpg"
 
 # ── 頁面設定 ────────────────────────────────────
 st.set_page_config(
@@ -99,10 +102,24 @@ def locate_booth(booth_no):
     
     return zones.get(zone, "未知區域 (請參考實體地圖)")
 
+
+def show_expo_map():
+    """顯示清大博覽會地圖（若檔案存在）。"""
+    st.markdown("### 🗺️ 清大博覽會地圖")
+
+    if MAP_IMAGE_PATH.exists():
+        st.image(str(MAP_IMAGE_PATH), caption="清大博覽會地圖", use_container_width=True)
+    else:
+        st.info("尚未找到地圖圖片檔案，請確認清大博覽會地圖.jpg 已放在專案根目錄。")
+
 # ── 主程式 ────────────────────────────────────
 def main():
     # 標題
     st.title("🎓 清大校園徵才 - 攤位快速定位系統")
+    st.markdown("---")
+
+    # 顯示博覽會地圖，幫助使用者先對照區域再搜尋攤位
+    show_expo_map()
     st.markdown("---")
     
     # 使用 Streamlit 的快取機制加快資料加載
