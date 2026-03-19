@@ -13,6 +13,7 @@ from pathlib import Path
 warnings.filterwarnings('ignore')
 
 MAP_IMAGE_PATH = Path(__file__).parent / "清大博覽會地圖.jpg"
+LOCAL_CACHE_PATH = Path(__file__).parent / "booth_cache.csv"
 
 # ── 頁面設定 ────────────────────────────────────
 st.set_page_config(
@@ -62,7 +63,7 @@ def get_booth_data(url):
     }
     
     try:
-        response = requests.get(url, headers=headers, verify=False, timeout=10)
+        response = requests.get(url, headers=headers, verify=False, timeout=6)
         response.encoding = 'utf-8'
         
         # 使用 pandas 快速解析網頁中的所有表格
@@ -84,6 +85,49 @@ def get_booth_data(url):
     except Exception as e:
         st.error(f"❌ 爬取失敗: {e}")
         return None
+
+
+def save_local_cache(df):
+    """保存最新成功抓到的攤位資料到本地 CSV。"""
+    if df is None or df.empty:
+        return
+    try:
+        df.to_csv(LOCAL_CACHE_PATH, index=False, encoding='utf-8-sig')
+    except Exception:
+        # 本地快取失敗不應中斷主流程
+        pass
+
+
+def load_local_cache():
+    """讀取本地 CSV 快取，作為網路失敗時的備援。"""
+    if not LOCAL_CACHE_PATH.exists():
+        return None
+
+    try:
+        cache_df = pd.read_csv(LOCAL_CACHE_PATH, dtype=str)
+        required_cols = {"攤位編號", "企業名稱"}
+        if required_cols.issubset(cache_df.columns):
+            return cache_df[["攤位編號", "企業名稱"]].dropna()
+    except Exception:
+        return None
+
+    return None
+
+
+def load_booth_data():
+    """資料固定時使用：優先讀本地快取，首次才抓網頁並保存。"""
+    cached_df = load_local_cache()
+    if cached_df is not None and not cached_df.empty:
+        return cached_df, "local_cache"
+
+    url = "https://careernthu.conf.asia/com_exhibit_list.aspx?lang=cht"
+    fresh_df = get_booth_data(url)
+
+    if fresh_df is not None and not fresh_df.empty:
+        save_local_cache(fresh_df)
+        return fresh_df, "first_fetch"
+
+    return None, "unavailable"
 
 def locate_booth(booth_no):
     """根據攤位編號轉換為對應的地圖區域與地標"""
@@ -122,21 +166,25 @@ def main():
     show_expo_map()
     st.markdown("---")
     
-    # 使用 Streamlit 的快取機制加快資料加載
-    @st.cache_data
-    def load_data():
-        url = "https://careernthu.conf.asia/com_exhibit_list.aspx?lang=cht"
-        return get_booth_data(url)
-    
-    # 加載資料
-    with st.spinner("📡 正在獲取企業攤位資料..."):
-        df = load_data()
+    # 初始化資料：固定資料模式下，優先使用本地快取
+    if "booth_df" not in st.session_state or "booth_data_source" not in st.session_state:
+        with st.spinner("📡 正在獲取企業攤位資料..."):
+            df, source = load_booth_data()
+        st.session_state["booth_df"] = df
+        st.session_state["booth_data_source"] = source
+
+    df = st.session_state.get("booth_df")
+    source = st.session_state.get("booth_data_source", "unavailable")
     
     if df is None:
         st.error("❌ 無法獲取資料，請檢查網路連線或聯絡管理員")
         return
-    
-    st.success(f"✅ 成功載入 {len(df)} 筆企業資料")
+
+    if source == "first_fetch":
+        st.success(f"✅ 首次成功載入 {len(df)} 筆企業資料，已保存為本地快取")
+    elif source == "local_cache":
+        st.success(f"✅ 已載入本地固定資料，共 {len(df)} 筆")
+
     st.markdown("---")
     
     # 搜尋欄位
@@ -219,7 +267,7 @@ def main():
     st.markdown("---")
     st.markdown("""
         <div style='text-align: center; color: gray; font-size: 12px;'>
-        🎓 清大校園徵才攤位定位系統 | 最後更新：即時網頁資料  
+        🎓 清大校園徵才攤位定位系統 | 資料來源：本地固定快取  
         </div>
     """, unsafe_allow_html=True)
 
