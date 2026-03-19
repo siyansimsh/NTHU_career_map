@@ -164,6 +164,65 @@
       margin-top: 8px;
     }
 
+    .table-container {
+      overflow-x: auto;
+      margin-top: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    table thead tr {
+      border-bottom: 2px solid var(--accent);
+      background: #f6fafc;
+    }
+
+    table th {
+      text-align: left;
+      padding: 10px;
+      color: var(--accent-2);
+      font-weight: 600;
+    }
+
+    table tbody tr {
+      border-bottom: 1px solid var(--line);
+    }
+
+    table tbody tr:hover {
+      background: #f9fafc;
+    }
+
+    table td {
+      padding: 10px;
+      color: var(--ink);
+    }
+
+    table td:first-child {
+      color: var(--accent-2);
+      font-weight: 500;
+    }
+
+    .sort-options {
+      display: flex;
+      gap: 16px;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+
+    .sort-options label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .sort-options input[type="radio"] {
+      cursor: pointer;
+    }
+
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
@@ -185,6 +244,14 @@
       <div class="hint">支援關鍵字模糊搜尋，資料為固定快取版本。</div>
       <div id="status" class="status">載入資料中...</div>
       <div id="results"></div>
+    </section>
+
+    <section class="box">
+      <h3 style="margin: 0; color: var(--accent-2);">📋 查看所有企業列表</h3>
+      <button id="toggleAllBtn" class="btn" style="width: 100%; margin-top: 10px;">展開列表</button>
+      <div id="allListBox" style="margin-top: 10px; display: none;">
+        <div id="allListTable"></div>
+      </div>
     </section>
 
     <section class="box map">
@@ -258,10 +325,88 @@
       }
     }
 
+    function showAllList(sortBy = "company") {
+      const listBox = document.getElementById("allListTable");
+      if (!booths.length) {
+        listBox.innerHTML = '<div class="status warn">無資料可顯示</div>';
+        return;
+      }
+
+      const sorted = [...booths].sort((a, b) => {
+        if (sortBy === "booth") {
+          return String(a["攤位編號"]).localeCompare(String(b["攤位編號"]));
+        } else {
+          return String(a["企業名稱"]).localeCompare(String(b["企業名稱"]), "zh");
+        }
+      });
+
+      let html = `
+        <div class="sort-options">
+          <label>
+            <input type="radio" name="sortRadio" value="company" ${sortBy === "company" ? "checked" : ""} />
+            企業名稱
+          </label>
+          <label>
+            <input type="radio" name="sortRadio" value="booth" ${sortBy === "booth" ? "checked" : ""} />
+            攤位編號
+          </label>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>攤位編號</th>
+                <th>企業名稱</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      sorted.forEach(item => {
+        const booth = item["攤位編號"] || "";
+        const company = item["企業名稱"] || "";
+        html += `
+          <tr>
+            <td>${booth}</td>
+            <td>${company}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+            </tbody>
+          </table>
+        </div>
+      `;
+      listBox.innerHTML = html;
+
+      // Re-attach radio listeners
+      document.querySelectorAll('input[name="sortRadio"]').forEach(radio => {
+        radio.addEventListener("change", (e) => {
+          showAllList(e.target.value);
+        });
+      });
+    }
+
     document.getElementById("searchBtn").addEventListener("click", doSearch);
     document.getElementById("q").addEventListener("keydown", (e) => {
       if (e.key === "Enter") doSearch();
     });
+
+    const toggleBtn = document.getElementById("toggleAllBtn");
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", () => {
+        const box = document.getElementById("allListBox");
+        if (box.style.display === "none" || !box.style.display) {
+          box.style.display = "block";
+          toggleBtn.textContent = "收起列表";
+          showAllList("company");
+        } else {
+          box.style.display = "none";
+          toggleBtn.textContent = "展開列表";
+        }
+      });
+    }
 
     init();
   </script>
