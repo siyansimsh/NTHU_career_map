@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b3a53" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="清大徵才地圖" />
+  <title>清大徵才攤位定位</title>
+  <style>
+    :root {
+      --bg1: #f3f8fb;
+      --bg2: #dbeaf3;
+      --ink: #123;
+      --card: #ffffff;
+      --line: #d7e3ea;
+      --accent: #0b7fab;
+      --accent-2: #0b3a53;
+      --ok: #0f7a52;
+      --warn: #9a6a00;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at -10% -20%, #ffffff 0%, transparent 60%),
+        linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
+      min-height: 100dvh;
+    }
+
+    .wrap {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 20px 14px 24px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #0b3a53, #0b7fab);
+      color: #fff;
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 10px 24px rgba(11, 58, 83, 0.25);
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.25;
+    }
+
+    .hero p {
+      margin: 8px 0 0;
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .box {
+      margin-top: 14px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    .search {
+      display: flex;
+      gap: 8px;
+    }
+
+    .search input {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid #cfd9df;
+      border-radius: 10px;
+      font-size: 16px;
+      outline: none;
+    }
+
+    .search input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(11, 127, 171, 0.14);
+    }
+
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 14px;
+      color: #fff;
+      background: var(--accent);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .hint {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #365;
+    }
+
+    .status {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      background: #edf6ff;
+      color: #214;
+      border: 1px solid #cfe3f3;
+    }
+
+    .status.ok {
+      background: #ecf9f2;
+      border-color: #ccead8;
+      color: var(--ok);
+    }
+
+    .status.warn {
+      background: #fff8ea;
+      border-color: #f2e1bc;
+      color: var(--warn);
+    }
+
+    .map img {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+    }
+
+    .result {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 12px;
+      padding: 10px;
+      background: #fbfeff;
+      animation: fadeIn .2s ease;
+    }
+
+    .result h3 {
+      margin: 0;
+      font-size: 16px;
+      color: var(--accent-2);
+    }
+
+    .meta {
+      margin-top: 6px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .muted {
+      font-size: 12px;
+      color: #567;
+      margin-top: 8px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <h1>清大校園徵才 攤位快速定位</h1>
+      <p>iPhone 主畫面可用版本（靜態頁，不依賴 Streamlit WebSocket）</p>
+    </section>
+
+    <section class="box">
+      <div class="search">
+        <input id="q" type="text" placeholder="輸入企業名稱或攤位編號，例如 台積電、A01" />
+        <button id="searchBtn" class="btn">搜尋</button>
+      </div>
+      <div class="hint">支援關鍵字模糊搜尋，資料為固定快取版本。</div>
+      <div id="status" class="status">載入資料中...</div>
+      <div id="results"></div>
+    </section>
+
+    <section class="box map">
+      <img src="./清大博覽會地圖.jpg" alt="清大博覽會地圖" />
+      <div class="muted">地圖僅供快速對照，實際以現場公告為準。</div>
+    </section>
+  </main>
+
+  <script>
+    let booths = [];
+
+    function locateBooth(boothNo) {
+      if (!boothNo || boothNo.length < 2) return "位置未知";
+      const zone = boothNo.charAt(0).toUpperCase();
+      const zones = {
+        A: "A區（綠色）：下方入口，近名人堂、野台、水漾餐廳",
+        B: "B區（藍色）：左下方，蒙民偉樓前、近餐飲區",
+        C: "C區（橘色）：中央步道，介於蒙民偉樓/體育館與物理館/桌球館",
+        D: "D區（紫色）：左側與左上方，體育館周邊道路",
+        E: "E區（黃色）：上方草地與田徑場周邊，近主舞台與醫護站"
+      };
+      return zones[zone] || "未知區域";
+    }
+
+    function renderResults(list, q) {
+      const box = document.getElementById("results");
+      if (!q) {
+        box.innerHTML = "";
+        return;
+      }
+      if (!list.length) {
+        box.innerHTML = '<div class="status warn">找不到符合資料，請試試公司簡稱或攤位編號</div>';
+        return;
+      }
+
+      box.innerHTML = list.slice(0, 50).map(item => {
+        const booth = item["攤位編號"] || "";
+        const company = item["企業名稱"] || "";
+        return `
+          <article class="result">
+            <h3>${company}</h3>
+            <div class="meta">攤位編號：${booth}</div>
+            <div class="meta">位置：${locateBooth(booth)}</div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function doSearch() {
+      const q = document.getElementById("q").value.trim();
+      const norm = q.toLowerCase();
+      const list = booths.filter(item => {
+        const company = String(item["企業名稱"] || "").toLowerCase();
+        const booth = String(item["攤位編號"] || "").toLowerCase();
+        return company.includes(norm) || booth.includes(norm);
+      });
+      renderResults(list, q);
+    }
+
+    async function init() {
+      const status = document.getElementById("status");
+      try {
+        const res = await fetch("./booth_data.json", { cache: "no-store" });
+        if (!res.ok) throw new Error("資料讀取失敗");
+        booths = await res.json();
+        status.className = "status ok";
+        status.textContent = `資料已載入，共 ${booths.length} 筆`;
+      } catch (err) {
+        status.className = "status warn";
+        status.textContent = "資料載入失敗，請確認 GitHub Pages 已部署完成";
+      }
+    }
+
+    document.getElementById("searchBtn").addEventListener("click", doSearch);
+    document.getElementById("q").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") doSearch();
+    });
+
+    init();
+  </script>
+</body>
+</html>

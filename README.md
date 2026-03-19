@@ -104,3 +104,26 @@ A：可以用 PWA 技術實現，詢問我可提供另一個版本
 - **最像 App**：用「新增至主畫面」功能（看起來像真正的 App）
 
 需要幫忙嗎？😊
+
+---
+
+## 🍎 iOS 主畫面穩定方案（推薦）
+
+若 iOS 透過主畫面開啟 Streamlit 持續卡在骨架畫面，建議改用本專案提供的「靜態版」：
+
+- 靜態版入口：[docs/index.html](docs/index.html)
+- 資料檔：[docs/booth_data.json](docs/booth_data.json)
+
+### 為什麼這個版本穩定
+- 不使用 Streamlit WebSocket
+- 不依賴伺服器 Session
+- 內容為固定資料，適合 iOS 主畫面啟動
+
+### 如何啟用（GitHub Pages）
+1. 到 GitHub Repo 的 Settings -> Pages
+2. Source 選擇 `Deploy from a branch`
+3. Branch 選 `main`，資料夾選 `/docs`
+4. 儲存後等待部署完成
+5. 用 iPhone 開啟 Pages 網址後「加入主畫面」
+
+> 這個做法通常比 Streamlit 在 iOS 主畫面模式更可靠。
